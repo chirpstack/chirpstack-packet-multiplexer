@@ -32,7 +32,7 @@
   tracing-subscriber = { version = "0.3", features = ["fmt", "ansi"] }
   signal-hook = "0.3"
   hex = "0.4"
-  axum = "0.7"
+  axum = "0.8"
   handlebars = "6.1"
 
   # Debian packaging.
