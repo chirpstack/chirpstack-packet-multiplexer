@@ -1,8 +1,8 @@
 use anyhow::Result;
-use axum::{http::StatusCode, routing::get, Router};
+use axum::{Router, http::StatusCode, routing::get};
 use prometheus_client::{
-    encoding::text::encode,
     encoding::EncodeLabelSet,
+    encoding::text::encode,
     metrics::counter::Counter,
     metrics::family::Family,
     registry::{Metric, Registry},

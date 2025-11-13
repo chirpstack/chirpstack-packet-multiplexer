@@ -2,15 +2,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tokio::sync::{oneshot, OnceCell, RwLock};
-use tracing::{debug, error, info, trace, warn, Instrument};
+use tokio::sync::{OnceCell, RwLock, oneshot};
+use tracing::{Instrument, debug, error, info, trace, warn};
 
 use crate::config;
 use crate::monitoring::{inc_server_udp_received_count, inc_server_udp_sent_count};
-use crate::packets::{get_random_token, GatewayId, PacketType};
+use crate::packets::{GatewayId, PacketType, get_random_token};
 use crate::traits::PrintFullError;
 
 static SERVERS: OnceCell<RwLock<Vec<Server>>> = OnceCell::const_new();
@@ -159,13 +159,13 @@ async fn handle_uplink_packet(gateway_id: GatewayId, data: &[u8]) -> Result<()> 
                 inc_server_udp_sent_count(&server.server, packet_type).await;
             }
             PacketType::TxAck => {
-                if let Some(pull_resp_token) = socket.pull_resp_token {
-                    if pull_resp_token == random_token {
-                        info!(packet_type = %packet_type, "Sending UDP packet");
-                        socket.pull_resp_token = None;
-                        socket.socket.send(data).await.context("Send UDP packet")?;
-                        inc_server_udp_sent_count(&server.server, packet_type).await;
-                    }
+                if let Some(pull_resp_token) = socket.pull_resp_token
+                    && pull_resp_token == random_token
+                {
+                    info!(packet_type = %packet_type, "Sending UDP packet");
+                    socket.pull_resp_token = None;
+                    socket.socket.send(data).await.context("Send UDP packet")?;
+                    inc_server_udp_sent_count(&server.server, packet_type).await;
                 }
             }
             _ => {}
@@ -339,10 +339,10 @@ async fn set_pull_resp_token(srv: &str, gateway_id: GatewayId, token: u16) -> Re
     let mut servers = servers.write().await;
 
     for server in servers.iter_mut() {
-        if server.server.eq(srv) {
-            if let Some(v) = server.sockets.get_mut(&gateway_id) {
-                v.pull_resp_token = Some(token);
-            }
+        if server.server.eq(srv)
+            && let Some(v) = server.sockets.get_mut(&gateway_id)
+        {
+            v.pull_resp_token = Some(token);
         }
     }
 

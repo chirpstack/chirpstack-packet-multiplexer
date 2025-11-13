@@ -3,14 +3,14 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use tokio::net::UdpSocket;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::sync::{OnceCell, RwLock};
-use tracing::{debug, error, info, trace, warn, Instrument};
+use tracing::{Instrument, debug, error, info, trace, warn};
 
 use crate::monitoring::{inc_gateway_udp_received_count, inc_gateway_udp_sent_count};
-use crate::packets::{get_random_token, GatewayId, PacketType};
+use crate::packets::{GatewayId, PacketType, get_random_token};
 use crate::traits::PrintFullError;
 
 static GATEWAYS: OnceCell<RwLock<HashMap<GatewayId, Gateway>>> = OnceCell::const_new();

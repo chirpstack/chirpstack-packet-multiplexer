@@ -1,6 +1,6 @@
 use std::fmt;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 #[derive(Clone, Copy, Debug)]
 pub enum PacketType {
