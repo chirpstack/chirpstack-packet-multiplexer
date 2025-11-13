@@ -6,7 +6,7 @@
   license = "MIT"
   version = "4.0.0-test.2"
   authors = ["Orne Brocaar <info@brocaar.com>"]
-  edition = "2021"
+  edition = "2024"
   publish = false
 
 [dependencies]
@@ -17,9 +17,13 @@
     "derive",
   ] }
   serde = { version = "1.0", features = ["derive"] }
-  toml = "0.8"
-  prometheus-client = "0.22"
-  tokio = { version = "1.41", features = [
+  toml = { version = "0.9", default-features = false, features = [
+    "std",
+    "parse",
+    "serde",
+  ] }
+  prometheus-client = "0.24"
+  tokio = { version = "1.48", features = [
     "macros",
     "rt-multi-thread",
     "net",
@@ -27,13 +31,13 @@
     "time",
   ] }
   anyhow = "1.0"
-  lrwn_filters = { version = "4.10.0-test.1", features = ["serde"] }
+  lrwn_filters = { version = "4.15.0", features = ["serde"] }
   tracing = "0.1"
   tracing-subscriber = { version = "0.3", features = ["fmt", "ansi"] }
   signal-hook = "0.3"
   hex = "0.4"
-  axum = "0.7"
-  handlebars = "6.1"
+  axum = "0.8"
+  handlebars = "6.3"
 
   # Debian packaging.
   [package.metadata.deb]
