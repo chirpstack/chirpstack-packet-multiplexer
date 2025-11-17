@@ -199,7 +199,7 @@ template:
 ```
 services:
   chirpstack-packet-multiplexer:
-    image: chirpstack/chirpstack-packet-multiplexer:4.0.0-test.2
+    image: chirpstack/chirpstack-packet-multiplexer:4.0.0-test.3
     command: -c /etc/chirpstack-packet-multiplexer/chirpstack-packet-multiplexer.toml
     ports:
       - 1700:1700/udp
@@ -216,6 +216,7 @@ The above example assumes that you have a local configuration directory named
 
 * Refactor code from Go to Rust.
 * Allow Gateway ID prefix filtering.
+* Allow DevAddr / JoinEUI prefix filtering.
 * Forward all gateways in case `gateway_id_prefixes` is empty.
 * Expose Prometheus metrics.
 
