@@ -45,11 +45,36 @@ pub fn run(config: &Configuration) {
   #   # If not set, data of all gateways will be forwarded. If set, only data
   #   # from gateways with a matching Gateway ID will be forwarded.
   #   #
-  #   # Examplex:
+  #   # Example:
   #   # * "0102030405060708/32": Exact match (all 32 bits of the filter must match)
   #   # * "0102030400000000/16": All gateway IDs starting with "01020304" (filter on 16 most significant bits)
   #   gateway_id_prefixes=[]
-  {{#each multiplexer.servers}}
+  #
+  #   # Filter configuration.
+  #   [multiplexer.server.filters]
+
+  #     # DevAddr prefix filters.
+  #     #
+  #     # Example configuration:
+  #     # dev_addr_prefixes=["0000ff00/24"]
+  #     #
+  #     # The above filter means that the 24MSB of 0000ff00 will be used to
+  #     # filter DevAddrs. Uplinks with DevAddrs that do not match any of the
+  #     # configured filters will not be forwarded. Leaving this option empty
+  #     # disables filtering on DevAddr.
+  #     dev_addr_prefixes=[]
+
+  #     # JoinEUI prefix filters.
+  #     #
+  #     # Example configuration:
+  #     # join_eui_prefixes=["0000ff0000000000/24"]
+  #     #
+  #     # The above filter means that the 24MSB of 0000ff0000000000 will be used
+  #     # to filter JoinEUIs. Uplinks with JoinEUIs that do not match any of the
+  #     # configured filters will not be forwarded. Leaving this option empty
+  #     # disables filtering on JoinEUI.
+  #     join_eui_prefixes=[]
+  {{#each multiplexer.server}}
   [[multiplexer.server]]
     server="{{this.server}}"
     uplink_only={{this.uplink_only}}
@@ -59,6 +84,18 @@ pub fn run(config: &Configuration) {
       {{/each}}
     ]
 
+    [multiplexer.server.filters]
+      dev_addr_prefixes=[
+        {{#each this.filters.dev_addr_prefixes}}
+        "{{this}}",
+        {{/each}}
+      ]
+
+      join_eui_prefixes=[
+        {{#each this.filters.join_eui_prefixes}}
+        "{{this}}",
+        {{/each}}
+      ]
   {{/each}}
 
 

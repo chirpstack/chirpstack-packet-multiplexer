@@ -1,7 +1,6 @@
-use std::time::Duration;
+use std::str::FromStr;
 
 use tokio::net::UdpSocket;
-use tokio::time::timeout;
 use tracing_subscriber::prelude::*;
 
 use chirpstack_packet_multiplexer::{config, forwarder, listener};
@@ -17,6 +16,12 @@ async fn test() {
             bind: "0.0.0.0:1710".into(),
             servers: vec![config::Server {
                 server: "localhost:1711".into(),
+                filters: config::Filters {
+                    dev_addr_prefixes: vec![
+                        lrwn_filters::DevAddrPrefix::from_str("01000000/8").unwrap(),
+                    ],
+                    ..Default::default()
+                },
                 ..Default::default()
             }],
         },
@@ -57,69 +62,6 @@ async fn test() {
             0x02, 0x01, 0x02, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x7b, 0x22,
             0x72, 0x78, 0x70, 0x6b, 0x22, 0x3a, 0x5b, 0x7b, 0x22, 0x64, 0x61, 0x74, 0x61, 0x22,
             0x3a, 0x22, 0x51, 0x41, 0x51, 0x44, 0x41, 0x67, 0x45, 0x3d, 0x22, 0x7d, 0x5d, 0x7d,
-        ],
-        &buffer[..size]
-    );
-
-    // Send PULL_DATA.
-    gw_sock
-        .send(&[
-            0x02, 0x01, 0x02, 0x02, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        ])
-        .await
-        .unwrap();
-
-    // Expect PULL_ACK.
-    let size = gw_sock.recv(&mut buffer).await.unwrap();
-    assert_eq!(&[0x02, 0x01, 0x02, 0x04], &buffer[..size]);
-
-    // Expect PULL_ACK forwarded to server.
-    let (size, addr) = server_sock.recv_from(&mut buffer).await.unwrap();
-    assert_eq!(
-        &[
-            0x02, 0x01, 0x02, 0x02, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        ],
-        &buffer[..size]
-    );
-
-    // Send TX_ACK from gateway.
-    // We want to test here that if the token is not associated with the server
-    // socket, it is not forwarded to the server.
-    // Send TX_ACK from gateway.
-    gw_sock
-        .send(&[
-            0x02, 0x01, 0x02, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        ])
-        .await
-        .unwrap();
-
-    // Expect receiving at server to timeout.
-    let resp = timeout(Duration::from_millis(100), server_sock.recv(&mut buffer)).await;
-    assert!(resp.is_err());
-
-    // Send PULL_RESP from server.
-    server_sock
-        .send_to(&[0x02, 0x01, 0x02, 0x03, 0x7b, 0x7d], addr)
-        .await
-        .unwrap();
-
-    // Expect PULL_RESP at gateway.
-    let size = gw_sock.recv(&mut buffer).await.unwrap();
-    assert_eq!(&[0x02, 0x01, 0x02, 0x03, 0x7b, 0x7d,], &buffer[..size]);
-
-    // Send TX_ACK from gateway.
-    gw_sock
-        .send(&[
-            0x02, 0x01, 0x02, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        ])
-        .await
-        .unwrap();
-
-    // Expect TX_ACK at server.
-    let size = server_sock.recv(&mut buffer).await.unwrap();
-    assert_eq!(
-        &[
-            0x02, 0x01, 0x02, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
         ],
         &buffer[..size]
     );

@@ -66,6 +66,14 @@ pub struct Server {
     pub server: String,
     pub uplink_only: bool,
     pub gateway_id_prefixes: Vec<lrwn_filters::EuiPrefix>,
+    pub filters: Filters,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone)]
+#[serde(default)]
+pub struct Filters {
+    pub dev_addr_prefixes: Vec<lrwn_filters::DevAddrPrefix>,
+    pub join_eui_prefixes: Vec<lrwn_filters::EuiPrefix>,
 }
 
 #[derive(Default, Serialize, Deserialize, Clone)]

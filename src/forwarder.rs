@@ -10,7 +10,7 @@ use tracing::{Instrument, debug, error, info, trace, warn};
 
 use crate::config;
 use crate::monitoring::{inc_server_udp_received_count, inc_server_udp_sent_count};
-use crate::packets::{GatewayId, PacketType, get_random_token};
+use crate::packets::{GatewayId, PacketType, PushData, get_random_token};
 use crate::traits::PrintFullError;
 
 static SERVERS: OnceCell<RwLock<Vec<Server>>> = OnceCell::const_new();
@@ -19,6 +19,7 @@ struct Server {
     server: String,
     uplink_only: bool,
     gateway_id_prefixes: Vec<lrwn_filters::EuiPrefix>,
+    filters: lrwn_filters::Filters,
     downlink_tx: UnboundedSender<(GatewayId, Vec<u8>)>,
     sockets: HashMap<GatewayId, ServerSocket>,
 }
@@ -106,6 +107,10 @@ pub async fn setup(
             server.server.clone(),
             server.uplink_only,
             server.gateway_id_prefixes.clone(),
+            lrwn_filters::Filters {
+                dev_addr_prefixes: server.filters.dev_addr_prefixes.clone(),
+                join_eui_prefixes: server.filters.join_eui_prefixes.clone(),
+            },
             downlink_tx.clone(),
         )
         .await?;
@@ -139,6 +144,7 @@ async fn handle_uplink_packet(gateway_id: GatewayId, data: &[u8]) -> Result<()> 
             continue;
         }
 
+        let filters = server.filters.clone();
         let socket = server.get_server_socket(gateway_id).await?;
         socket.last_uplink = SystemTime::now();
 
@@ -146,12 +152,23 @@ async fn handle_uplink_packet(gateway_id: GatewayId, data: &[u8]) -> Result<()> 
         let _enter = span.enter();
 
         match packet_type {
-            PacketType::PushData => {
-                info!(packet_type = %packet_type, "Sending UDP packet");
-                socket.push_data_token = Some(random_token);
-                socket.socket.send(data).await.context("Send UDP packet")?;
-                inc_server_udp_sent_count(&server.server, packet_type).await;
-            }
+            PacketType::PushData => match PushData::from_slice(data) {
+                Ok(mut push_data) => {
+                    push_data.payload.filter_rxpk(&filters);
+
+                    if push_data.payload.is_empty() {
+                        debug!("Nothing to send, UDP packet is empty or does not match filters");
+                    } else {
+                        info!(packet_type = %packet_type, "Sending UDP packet");
+                        socket.push_data_token = Some(random_token);
+                        socket.socket.send(data).await.context("Send UDP packet")?;
+                        inc_server_udp_sent_count(&server.server, packet_type).await;
+                    }
+                }
+                Err(e) => {
+                    error!("Decode PushData payload error: {}", e);
+                }
+            },
             PacketType::PullData => {
                 info!(packet_type = %packet_type, "Sending UDP packet");
                 socket.pull_data_token = Some(random_token);
@@ -278,6 +295,7 @@ async fn add_server(
     server: String,
     uplink_only: bool,
     gateway_id_prefixes: Vec<lrwn_filters::EuiPrefix>,
+    filters: lrwn_filters::Filters,
     downlink_tx: UnboundedSender<(GatewayId, Vec<u8>)>,
 ) -> Result<()> {
     info!(
@@ -296,6 +314,7 @@ async fn add_server(
         server,
         uplink_only,
         gateway_id_prefixes,
+        filters,
         downlink_tx,
         sockets: HashMap::new(),
     });

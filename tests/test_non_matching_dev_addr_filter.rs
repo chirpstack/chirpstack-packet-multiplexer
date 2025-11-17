@@ -1,4 +1,8 @@
+use std::str::FromStr;
+use std::time::Duration;
+
 use tokio::net::UdpSocket;
+use tokio::time::timeout;
 use tracing_subscriber::prelude::*;
 
 use chirpstack_packet_multiplexer::{config, forwarder, listener};
@@ -12,18 +16,32 @@ async fn test() {
     let conf = config::Configuration {
         multiplexer: config::Multiplexer {
             bind: "0.0.0.0:1710".into(),
-            ..Default::default()
+            servers: vec![config::Server {
+                server: "localhost:1711".into(),
+                filters: config::Filters {
+                    dev_addr_prefixes: vec![
+                        lrwn_filters::DevAddrPrefix::from_str("02000000/8").unwrap(),
+                    ],
+                    ..Default::default()
+                },
+                ..Default::default()
+            }],
         },
         ..Default::default()
     };
+
     let (downlink_tx, uplink_rx) = listener::setup(&conf.multiplexer.bind).await.unwrap();
     forwarder::setup(downlink_tx, uplink_rx, conf.multiplexer.servers.clone())
         .await
         .unwrap();
+    let mut buffer: [u8; 65535] = [0; 65535];
 
+    // Server socket.
+    let server_sock = UdpSocket::bind("0.0.0.0:1711").await.unwrap();
+
+    // Gateway socket.
     let gw_sock = UdpSocket::bind("0.0.0.0:0").await.unwrap();
     gw_sock.connect("localhost:1710").await.unwrap();
-    let mut buffer: [u8; 65535] = [0; 65535];
 
     // Send PUSH_DATA (unconfirmed uplink with DevAddr 01020304).
     gw_sock
@@ -39,15 +57,7 @@ async fn test() {
     let size = gw_sock.recv(&mut buffer).await.unwrap();
     assert_eq!(&[0x02, 0x01, 0x02, 0x01], &buffer[..size]);
 
-    // Send PULL_DATA.
-    gw_sock
-        .send(&[
-            0x02, 0x01, 0x02, 0x02, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        ])
-        .await
-        .unwrap();
-
-    // Expect PULL_ACK.
-    let size = gw_sock.recv(&mut buffer).await.unwrap();
-    assert_eq!(&[0x02, 0x01, 0x02, 0x04], &buffer[..size]);
+    // Expect PUSH_DATA not to be forwarded.
+    let resp = timeout(Duration::from_millis(100), server_sock.recv(&mut buffer)).await;
+    assert!(resp.is_err());
 }

@@ -1,12 +1,9 @@
 use std::str::FromStr;
-use std::time::Duration;
 
 use tokio::net::UdpSocket;
-use tokio::time::timeout;
 use tracing_subscriber::prelude::*;
 
 use chirpstack_packet_multiplexer::{config, forwarder, listener};
-use lrwn_filters::EuiPrefix;
 
 #[tokio::test]
 async fn test() {
@@ -17,17 +14,16 @@ async fn test() {
     let conf = config::Configuration {
         multiplexer: config::Multiplexer {
             bind: "0.0.0.0:1710".into(),
-            servers: vec![
-                config::Server {
-                    server: "localhost:1711".into(),
+            servers: vec![config::Server {
+                server: "localhost:1711".into(),
+                filters: config::Filters {
+                    join_eui_prefixes: vec![
+                        lrwn_filters::EuiPrefix::from_str("0100000000000000/8").unwrap(),
+                    ],
                     ..Default::default()
                 },
-                config::Server {
-                    server: "localhost:1712".into(),
-                    gateway_id_prefixes: vec![EuiPrefix::from_str("0101000000000000/16").unwrap()],
-                    ..Default::default()
-                },
-            ],
+                ..Default::default()
+            }],
         },
         ..Default::default()
     };
@@ -38,36 +34,39 @@ async fn test() {
         .unwrap();
     let mut buffer: [u8; 65535] = [0; 65535];
 
-    // Server sockets.
-    let server1_sock = UdpSocket::bind("0.0.0.0:1711").await.unwrap();
-    let server2_sock = UdpSocket::bind("0.0.0.0:1701").await.unwrap();
+    // Server socket.
+    let server_sock = UdpSocket::bind("0.0.0.0:1711").await.unwrap();
 
     // Gateway socket.
     let gw_sock = UdpSocket::bind("0.0.0.0:0").await.unwrap();
     gw_sock.connect("localhost:1710").await.unwrap();
 
-    // Send PUSH_DATA (unconfirmed uplink with DevAddr 01020304).
+    // Send PUSH_DATA (join-request with joineui 0102030405060708).
     gw_sock
         .send(&[
             0x02, 0x01, 0x02, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x7b, 0x22,
             0x72, 0x78, 0x70, 0x6b, 0x22, 0x3a, 0x5b, 0x7b, 0x22, 0x64, 0x61, 0x74, 0x61, 0x22,
-            0x3a, 0x22, 0x51, 0x41, 0x51, 0x44, 0x41, 0x67, 0x45, 0x3d, 0x22, 0x7d, 0x5d, 0x7d,
+            0x3a, 0x22, 0x41, 0x41, 0x67, 0x48, 0x42, 0x67, 0x55, 0x45, 0x41, 0x77, 0x49, 0x42,
+            0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x3d, 0x22, 0x7d,
+            0x5d, 0x7d,
         ])
         .await
         .unwrap();
 
-    // Expect PUSH_DATA forwarded to server 1.
-    let size = server1_sock.recv(&mut buffer).await.unwrap();
+    // Expect PUSH_ACK.
+    let size = gw_sock.recv(&mut buffer).await.unwrap();
+    assert_eq!(&[0x02, 0x01, 0x02, 0x01], &buffer[..size]);
+
+    // Expect PUSH_DATA forwarded to server.
+    let size = server_sock.recv(&mut buffer).await.unwrap();
     assert_eq!(
         &[
             0x02, 0x01, 0x02, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x7b, 0x22,
             0x72, 0x78, 0x70, 0x6b, 0x22, 0x3a, 0x5b, 0x7b, 0x22, 0x64, 0x61, 0x74, 0x61, 0x22,
-            0x3a, 0x22, 0x51, 0x41, 0x51, 0x44, 0x41, 0x67, 0x45, 0x3d, 0x22, 0x7d, 0x5d, 0x7d,
+            0x3a, 0x22, 0x41, 0x41, 0x67, 0x48, 0x42, 0x67, 0x55, 0x45, 0x41, 0x77, 0x49, 0x42,
+            0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x3d, 0x22, 0x7d,
+            0x5d, 0x7d,
         ],
         &buffer[..size]
     );
-
-    // Expect PUSH_DATA not forwarded to server 2.
-    let resp = timeout(Duration::from_millis(100), server2_sock.recv(&mut buffer)).await;
-    assert!(resp.is_err());
 }
