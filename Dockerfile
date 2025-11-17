@@ -1,5 +1,5 @@
 # Copy binary stage
-FROM --platform=$BUILDPLATFORM alpine:3.20.0 as binary
+FROM --platform=$BUILDPLATFORM alpine:3.22.2 as binary
 
 ARG TARGETPLATFORM
 
@@ -20,7 +20,7 @@ RUN case "$TARGETPLATFORM" in \
 	esac;
 
 # Final stage
-FROM alpine:3.20.0
+FROM alpine:3.22.2
 
 COPY --from=binary /usr/bin/chirpstack-packet-multiplexer /usr/bin/chirpstack-packet-multiplexer
 USER nobody:nogroup
