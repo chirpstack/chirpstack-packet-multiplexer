@@ -8,30 +8,35 @@ to multiple servers, with the option to mark servers as uplink only.
 
 ### Debian / Ubuntu
 
-ChirpStack provides a repository that is compatible with the
-Debian / Ubuntu apt package system. First make sure that both `dirmngr` and
-`apt-transport-https` are installed:
+ChirpStack provides a Debian / Ubuntu repository which can be used to install
+the ChirpStack Packet Multiplexer. First make sure that `gpg` is installed:
 
 ```
-sudo apt install apt-transport-https dirmngr
+sudo apt install gpg
 ```
 
-Set up the key for this new repository:
+Set up the key for the ChirpStack repository:
 
-```
-sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 1CE2AFD36DBCCA00
-```
-
-Add the repository to the repository list by creating a new file:
-
-```
-sudo echo "deb https://artifacts.chirpstack.io/packages/4.x/deb stable main" | sudo tee /etc/apt/sources.list.d/chirpstack.list
+```bash
+sudo mkdir -p /etc/apt/keyrings/
+sudo sh -c 'wget -q -O - https://artifacts.chirpstack.io/packages/chirpstack.key | gpg --dearmor > /etc/apt/keyrings/chirpstack.gpg'
 ```
 
-Update the apt package cache and install `chirpstack-packet-multiplexer`:
+Add the repository to the repository list:
 
+```bash
+echo "deb [signed-by=/etc/apt/keyrings/chirpstack.gpg] https://artifacts.chirpstack.io/packages/4.x/deb stable main" | sudo tee /etc/apt/sources.list.d/chirpstack.list
 ```
+
+Update the apt package cache:
+
+```bash
 sudo apt update
+```
+
+Install `chirpstack-packet-multiplexer`:
+
+```
 sudo apt install chirpstack-packet-multiplexer
 ```
 
@@ -146,10 +151,35 @@ template:
   #   # If not set, data of all gateways will be forwarded. If set, only data
   #   # from gateways with a matching Gateway ID will be forwarded.
   #   #
-  #   # Examplex:
+  #   # Example:
   #   # * "0102030405060708/32": Exact match (all 32 bits of the filter must match)
   #   # * "0102030400000000/16": All gateway IDs starting with "01020304" (filter on 16 most significant bits)
   #   gateway_id_prefixes=[]
+  #
+  #   # Filter configuration.
+  #   [multiplexer.server.filters]
+
+  #     # DevAddr prefix filters.
+  #     #
+  #     # Example configuration:
+  #     # dev_addr_prefixes=["0000ff00/24"]
+  #     #
+  #     # The above filter means that the 24MSB of 0000ff00 will be used to
+  #     # filter DevAddrs. Uplinks with DevAddrs that do not match any of the
+  #     # configured filters will not be forwarded. Leaving this option empty
+  #     # disables filtering on DevAddr.
+  #     dev_addr_prefixes=[]
+
+  #     # JoinEUI prefix filters.
+  #     #
+  #     # Example configuration:
+  #     # join_eui_prefixes=["0000ff0000000000/24"]
+  #     #
+  #     # The above filter means that the 24MSB of 0000ff0000000000 will be used
+  #     # to filter JoinEUIs. Uplinks with JoinEUIs that do not match any of the
+  #     # configured filters will not be forwarded. Leaving this option empty
+  #     # disables filtering on JoinEUI.
+  #     join_eui_prefixes=[]
 
 
 # Monitoring configuration.
