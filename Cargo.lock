@@ -506,9 +506,9 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
 name = "lrwn_filters"
-version = "4.15.0"
+version = "4.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f52c610a7dc774ed9928c2256fb133d4b9991d0b574a36d16974ade1f1d6ec79"
+checksum = "f0e1599bde88ddd0da660b9ccbe7cf45acee225396a0ad2455737b2d260d72e1"
 dependencies = [
  "hex",
  "serde",

@@ -33,7 +33,7 @@
     "time",
   ] }
   anyhow = "1.0"
-  lrwn_filters = { version = "4.15.0", features = ["serde"] }
+  lrwn_filters = { version = "4.16.0", features = ["serde"] }
   tracing = "0.1"
   tracing-subscriber = { version = "0.3", features = ["fmt", "ansi"] }
   signal-hook = "0.4"
